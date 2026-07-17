@@ -38,10 +38,9 @@
   #stars{font-size:20px;display:flex;align-items:center;gap:6px}
   #modeLabel{font-size:18px;opacity:.8}
 
-  /* invisible-ish text field whose only job is to pop the mobile keyboard up */
-  #keyBar{display:none;padding:8px 12px;background:rgba(0,0,0,.12)}
-  #keyCapture{width:100%;font-size:16px;padding:10px;border:none;border-radius:10px;
-    text-align:center;background:#fff;color:#333;box-sizing:border-box}
+  /* invisible field whose only job is to pop the mobile keyboard up (kept out of sight) */
+  #keyBar{display:none;position:absolute;width:1px;height:1px;overflow:hidden;opacity:0;pointer-events:none}
+  #keyCapture{width:1px;height:1px;font-size:16px;border:none;padding:0;background:transparent;color:transparent}
 
   /* ---------- TYPING ---------- */
   #typing{display:none;height:calc(100vh - 56px)}
@@ -103,6 +102,12 @@
   #honkBtn{font-size:22px;font-weight:bold;padding:20px 30px;border:none;border-radius:20px;
     background:#ff5252;color:#fff;cursor:pointer;box-shadow:0 6px 0 rgba(0,0,0,.25)}
   #honkBtn:active{transform:translateY(6px);box-shadow:none}
+  #tiltBtn{font-size:16px;font-weight:bold;padding:10px 16px;border:none;border-radius:14px;
+    background:#7b61ff;color:#fff;cursor:pointer;box-shadow:0 4px 0 rgba(0,0,0,.25);margin-top:8px}
+  #tiltBtn.on{background:#2ecc71}
+  #tiltBtn:active{transform:translateY(4px);box-shadow:none}
+  #controls{flex-wrap:wrap;gap:8px}
+  #controlsRight{display:flex;flex-direction:column;align-items:center;gap:4px}
 </style></head>
 <body>
 
@@ -127,7 +132,7 @@
   </div>
 
   <div id="keyBar">
-    <input id="keyCapture" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="⌨️ Tap here, then press keys">
+    <input id="keyCapture" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
   </div>
 
   <div id="typing"><textarea id="editor" placeholder="Start typing..."></textarea></div>
@@ -165,6 +170,9 @@
         <div></div><button data-dir="down">⬇️</button><div></div>
       </div>
       <button id="honkBtn" onclick="honk()">📯 HONK</button>
+      <div id="controlsRight">
+        <button id="tiltBtn" onclick="toggleTilt()">🎮 Tilt Steering: Off</button>
+      </div>
     </div>
   </div>
 
@@ -256,6 +264,7 @@ function openMode(m){
   buildTouchRow(m);
   if(m==="typing") editor.focus();
   if(m==="vehicles") initVehicleMode();
+  if(m!=="vehicles" && tiltOn) disableTilt();
   if(needsKeyCapture(m)){
     keyBar.style.display="block";
     keyCapture.setAttribute("inputmode", m==="numbers" ? "numeric" : "text");
@@ -272,6 +281,7 @@ function home(){
   app.style.display="none"; menu.style.display="flex";
   window.speechSynthesis && window.speechSynthesis.cancel();
   stopEngine(); Object.keys(driveKeys).forEach(k=>driveKeys[k]=false);
+  if(tiltOn) disableTilt();
   keyCapture.blur(); keyBar.style.display="none";
 }
 
@@ -486,6 +496,50 @@ document.querySelectorAll("#dpad button[data-dir]").forEach(btn=>{
   btn.addEventListener("touchstart",start,{passive:false});
   ["mouseup","mouseleave","touchend","touchcancel"].forEach(evt=>btn.addEventListener(evt,stop));
 });
+
+/* ================= TILT STEERING ================= */
+let tiltOn=false, tiltBaseline=null;
+const tiltBtn=document.getElementById("tiltBtn");
+const TILT_DEADZONE=8; // degrees of wiggle room before it registers as a turn
+
+function onTilt(e){
+  if(e.gamma===null || e.beta===null) return;
+  if(!tiltBaseline) tiltBaseline={gamma:e.gamma,beta:e.beta};
+  const dGamma=e.gamma - tiltBaseline.gamma;   // left/right lean
+  const dBeta=e.beta - tiltBaseline.beta;      // forward/back lean
+  driveKeys.left  = dGamma < -TILT_DEADZONE;
+  driveKeys.right = dGamma >  TILT_DEADZONE;
+  driveKeys.up    = dBeta  < -TILT_DEADZONE;
+  driveKeys.down  = dBeta  >  TILT_DEADZONE;
+}
+function enableTilt(){
+  tiltOn=true; tiltBaseline=null;
+  window.addEventListener("deviceorientation",onTilt);
+  tiltBtn.textContent="🎮 Tilt Steering: On (hold phone level to reset)";
+  tiltBtn.classList.add("on");
+  speak("Tilt steering on! Tilt me to drive.");
+}
+function disableTilt(){
+  tiltOn=false; tiltBaseline=null;
+  window.removeEventListener("deviceorientation",onTilt);
+  driveKeys.left=driveKeys.right=driveKeys.up=driveKeys.down=false;
+  tiltBtn.textContent="🎮 Tilt Steering: Off";
+  tiltBtn.classList.remove("on");
+}
+function toggleTilt(){
+  if(tiltOn){ disableTilt(); return; }
+  /* iOS 13+ requires an explicit permission prompt, triggered from a real tap */
+  if(typeof DeviceOrientationEvent!=="undefined" && typeof DeviceOrientationEvent.requestPermission==="function"){
+    DeviceOrientationEvent.requestPermission().then(state=>{
+      if(state==="granted") enableTilt();
+      else speak("Tilt permission was not allowed.");
+    }).catch(()=>{});
+  } else if(window.DeviceOrientationEvent){
+    enableTilt();
+  } else {
+    speak("Sorry, this device does not support tilt steering.");
+  }
+}
 
 /* ================= KEYBOARD LISTENER ================= */
 const arrowKeyMap={ArrowUp:"up",ArrowDown:"down",ArrowLeft:"left",ArrowRight:"right",
