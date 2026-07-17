@@ -38,6 +38,11 @@
   #stars{font-size:20px;display:flex;align-items:center;gap:6px}
   #modeLabel{font-size:18px;opacity:.8}
 
+  /* invisible-ish text field whose only job is to pop the mobile keyboard up */
+  #keyBar{display:none;padding:8px 12px;background:rgba(0,0,0,.12)}
+  #keyCapture{width:100%;font-size:16px;padding:10px;border:none;border-radius:10px;
+    text-align:center;background:#fff;color:#333;box-sizing:border-box}
+
   /* ---------- TYPING ---------- */
   #typing{display:none;height:calc(100vh - 56px)}
   #editor{width:100%;height:100%;font-size:42px;padding:20px;box-sizing:border-box;border:none;outline:none;
@@ -103,7 +108,7 @@
 
 <div id="menu">
   <button id="muteBtn" onclick="toggleMute()">🔊</button>
-  <h1>🌈 Magic Keyboard Land</h1>
+  <h1>🌈 Chiku Ka Keyboard</h1>
   <div class="grid">
     <button class="modebtn" id="typingBtn" onclick="openMode('typing')"><span class="emoji">⌨️</span>Typing</button>
     <button class="modebtn" id="magicBtn" onclick="openMode('magic')"><span class="emoji">🎈</span>Magic Mash</button>
@@ -119,6 +124,10 @@
     <button id="homeBtn" onclick="home()">🏠 Home</button>
     <span id="modeLabel"></span>
     <span id="stars">⭐ <span id="starCount">0</span></span>
+  </div>
+
+  <div id="keyBar">
+    <input id="keyCapture" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="⌨️ Tap here, then press keys">
   </div>
 
   <div id="typing"><textarea id="editor" placeholder="Start typing..."></textarea></div>
@@ -203,7 +212,7 @@ const vehicleData=[
 /* ================= STATE ================= */
 let idle, stars=0, muted=false, audioCtx=null;
 const els={menu,app,toolbar,typing,magic,letters,numbers,vehicles,editor,big,hint,
-  starCount,modeLabel,homeBtn,touchRow,celebrate,
+  starCount,modeLabel,homeBtn,touchRow,celebrate,keyBar,keyCapture,
   letterIcon,letterDisplay,letterWord,numberDisplay,numberWord,numberDots};
 
 function getCtx(){ if(!audioCtx) audioCtx=new (window.AudioContext||window.webkitAudioContext)(); return audioCtx; }
@@ -235,7 +244,10 @@ function cheer(){
 }
 
 /* ================= MODE SWITCHING ================= */
+let currentMode=null;
+function needsKeyCapture(m){ return m==="magic"||m==="letters"||m==="numbers"; }
 function openMode(m){
+  currentMode=m;
   menu.style.display="none"; app.style.display="block";
   [typing,magic,letters,numbers,vehicles].forEach(el=>el.style.display="none");
   const labelMap={typing:"Typing Mode",magic:"Magic Mash",letters:"Learn Letters",numbers:"Learn Numbers",vehicles:"Vehicle World"};
@@ -244,13 +256,44 @@ function openMode(m){
   buildTouchRow(m);
   if(m==="typing") editor.focus();
   if(m==="vehicles") initVehicleMode();
+  if(needsKeyCapture(m)){
+    keyBar.style.display="block";
+    keyCapture.setAttribute("inputmode", m==="numbers" ? "numeric" : "text");
+    keyCapture.value="";
+    keyCapture.focus();
+  } else {
+    keyBar.style.display="none";
+    keyCapture.blur();
+  }
   resetIdle();
 }
 function home(){
+  currentMode=null;
   app.style.display="none"; menu.style.display="flex";
   window.speechSynthesis && window.speechSynthesis.cancel();
   stopEngine(); Object.keys(driveKeys).forEach(k=>driveKeys[k]=false);
+  keyCapture.blur(); keyBar.style.display="none";
 }
+
+/* Mobile virtual keyboards (and physical ones, while this field is focused) land here.
+   Using the input event (not keydown) is what makes this reliable on phones/tablets. */
+function routeCapturedChar(ch){
+  if(currentMode==="magic") magicTrigger(ch);
+  else if(currentMode==="letters" && /^[a-zA-Z]$/.test(ch)) showLetter(ch);
+  else if(currentMode==="numbers" && /^[0-9]$/.test(ch)) showNumber(parseInt(ch,10));
+}
+keyCapture.addEventListener("input",()=>{
+  const val=keyCapture.value;
+  keyCapture.value="";
+  if(!val) return;
+  routeCapturedChar(val.slice(-1));
+});
+/* keep the mobile keyboard open even if the OS/browser tries to dismiss it mid-play */
+keyCapture.addEventListener("blur",()=>{
+  if(needsKeyCapture(currentMode) && app.style.display==="block"){
+    setTimeout(()=>{ if(needsKeyCapture(currentMode)) keyCapture.focus(); },80);
+  }
+});
 
 /* ================= STARS / REWARDS ================= */
 function addStar(){
@@ -455,16 +498,12 @@ document.addEventListener("keydown",e=>{
     else if(e.key===" "||e.key==="Enter"){ e.preventDefault(); honk(); }
     return;
   }
-  if(magic.style.display==="block"){
-    magicTrigger(e.key);
-  } else if(letters.style.display==="flex" && /^[a-zA-Z]$/.test(e.key)){
-    showLetter(e.key);
-  } else if(numbers.style.display==="flex" && /^[0-9]$/.test(e.key)){
-    showNumber(parseInt(e.key,10));
-  } else if(typing.style.display==="block" && e.key.length===1){
+  if(typing.style.display==="block" && e.key.length===1){
     playScaleTone(e.key.charCodeAt(0));
     addStar();
   }
+  /* magic / letters / numbers keystrokes are handled by the keyCapture input's
+     "input" event above — this works for both physical and on-screen mobile keyboards */
 });
 document.addEventListener("keyup",e=>{
   if(arrowKeyMap[e.key]) driveKeys[arrowKeyMap[e.key]]=false;
