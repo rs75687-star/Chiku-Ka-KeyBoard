@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>Magic Keyboard Land</title>
+<style>
+  :root{
+    --bg1:#5ee7df; --bg2:#b490ca;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none}
+  body{margin:0;font-family:'Comic Sans MS','Trebuchet MS',Arial,sans-serif;
+    background:linear-gradient(135deg,var(--bg1),var(--bg2));overflow:hidden;height:100vh;transition:background 1.2s}
+
+  /* ---------- MENU ---------- */
+  #menu{display:flex;gap:22px;justify-content:center;align-items:center;height:100vh;flex-direction:column;position:relative}
+  #menu h1{font-size:min(11vw,64px);color:#fff;text-shadow:0 4px 0 rgba(0,0,0,.15);margin:0 0 10px}
+  .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:18px;max-width:640px;width:92%}
+  .modebtn{font-size:min(6vw,30px);padding:24px 14px;border:none;border-radius:24px;cursor:pointer;
+    color:#fff;font-weight:bold;box-shadow:0 6px 0 rgba(0,0,0,.2);display:flex;flex-direction:column;
+    align-items:center;gap:6px;transform:translateY(0);transition:transform .1s}
+  .modebtn:active{transform:translateY(6px);box-shadow:0 0 0 rgba(0,0,0,.2)}
+  .modebtn span.emoji{font-size:1.8em}
+  #typingBtn{background:#ff8a5c}
+  #magicBtn{background:#4fd1ff}
+  #lettersBtn{background:#9b6bff}
+  #numbersBtn{background:#4cd97b}
+  #vehiclesBtn{background:#ffb703;grid-column:1 / -1}
+  .tag{color:#fff;font-size:20px;opacity:.9}
+
+  /* mute toggle */
+  #muteBtn{position:absolute;top:16px;right:16px;background:rgba(255,255,255,.3);border:none;
+    border-radius:50%;width:56px;height:56px;font-size:26px;cursor:pointer}
+
+  /* ---------- APP SHELL ---------- */
+  #app{display:none;height:100vh}
+  #toolbar{padding:12px 16px;background:#222;color:#fff;display:flex;align-items:center;justify-content:space-between}
+  #homeBtn{background:#444;color:#fff;border:none;border-radius:14px;padding:10px 18px;
+    font-size:20px;cursor:pointer}
+  #homeBtn:active{background:#666}
+  #stars{font-size:20px;display:flex;align-items:center;gap:6px}
+  #modeLabel{font-size:18px;opacity:.8}
+
+  /* ---------- TYPING ---------- */
+  #typing{display:none;height:calc(100vh - 56px)}
+  #editor{width:100%;height:100%;font-size:42px;padding:20px;box-sizing:border-box;border:none;outline:none;
+    background:rgba(255,255,255,.85)}
+
+  /* ---------- MAGIC ---------- */
+  #magic{display:none;position:relative;height:calc(100vh - 56px);overflow:hidden}
+  #big{position:absolute;left:50%;top:38%;transform:translate(-50%,-50%);font-size:min(32vw,180px);
+    font-weight:bold;color:#fff;text-shadow:0 0 20px #000;transition:transform .08s}
+  .p{position:absolute;border-radius:50%;pointer-events:none;animation:fly 1.8s linear forwards}
+  .p.star{border-radius:0;clip-path:polygon(50% 0%,61% 35%,98% 35%,68% 57%,79% 91%,50% 70%,21% 91%,32% 57%,2% 35%,39% 35%)}
+  .p.heart{border-radius:0;clip-path:path('M50 85 C -20 40, 10 -5, 50 25 C 90 -5, 120 40, 50 85 Z')}
+  @keyframes fly{to{transform:translate(var(--dx),var(--dy)) scale(.1);opacity:0}}
+  #hint{position:absolute;bottom:16px;width:100%;text-align:center;font-size:min(5vw,26px);color:#fff;opacity:.9}
+
+  /* ---------- LETTERS / NUMBERS (shared layout) ---------- */
+  .learn{display:none;position:relative;height:calc(100vh - 56px);flex-direction:column;
+    align-items:center;justify-content:center;gap:8px}
+  .learn .display{font-size:min(45vw,260px);font-weight:bold;color:#fff;text-shadow:0 0 24px rgba(0,0,0,.3);line-height:1}
+  .learn .word{font-size:min(9vw,48px);color:#fff;font-weight:bold;text-shadow:0 2px 0 rgba(0,0,0,.2)}
+  .learn .icon{font-size:min(20vw,110px)}
+  .learn .prompt{position:absolute;bottom:16px;font-size:min(5vw,24px);color:#fff;opacity:.9}
+  .dots{display:flex;gap:10px;flex-wrap:wrap;max-width:70vw;justify-content:center}
+  .dots span{font-size:min(10vw,46px)}
+
+  /* on-screen key row for touch devices without a keyboard */
+  #touchRow{display:flex;flex-wrap:wrap;justify-content:center;gap:6px;padding:8px;background:rgba(0,0,0,.15)}
+  #touchRow button{font-size:20px;padding:10px 14px;border:none;border-radius:10px;background:#fff8;color:#fff;
+    font-weight:bold;cursor:pointer;min-width:38px}
+
+  #celebrate{position:fixed;inset:0;display:none;align-items:center;justify-content:center;
+    font-size:min(20vw,120px);color:#fff;text-shadow:0 0 30px #000;z-index:50;pointer-events:none}
+
+  /* ---------- VEHICLES ---------- */
+  #vehicles{display:none;flex-direction:column;height:calc(100vh - 56px)}
+  #vehiclePicker{display:flex;gap:8px;overflow-x:auto;padding:8px 10px;background:rgba(0,0,0,.15)}
+  #vehiclePicker button{flex:0 0 auto;font-size:34px;padding:6px 12px;border:none;border-radius:14px;
+    background:rgba(255,255,255,.25);cursor:pointer}
+  #vehiclePicker button.selected{background:#fff;box-shadow:0 0 0 3px #ffb703 inset}
+  #scene{position:relative;flex:1;overflow:hidden;transition:background 1s}
+  #scene.road{background:repeating-linear-gradient(#8d99ae,#8d99ae 100%)}
+  #scene.road::after{content:"";position:absolute;left:0;right:0;bottom:18%;height:8px;
+    background:repeating-linear-gradient(90deg,#fff 0 40px,transparent 40px 80px)}
+  #scene.sky{background:linear-gradient(#77c9ff,#d8f3ff)}
+  #scene.water{background:linear-gradient(#8fd3ff,#1e88e5)}
+  #scene.rail{background:linear-gradient(#bde0fe,#e8f6ff)}
+  .cloud{position:absolute;font-size:40px;opacity:.85}
+  #vehicleSprite{position:absolute;font-size:min(18vw,90px);left:20px;top:50%;
+    transform:translate(0,-50%);transition:transform .05s linear;filter:drop-shadow(0 6px 4px rgba(0,0,0,.25))}
+  .puff{position:absolute;border-radius:50%;background:#fff;opacity:.7;pointer-events:none;
+    animation:puffFade .6s ease-out forwards}
+  @keyframes puffFade{to{opacity:0;transform:scale(2.2)}}
+  #controls{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;
+    background:rgba(0,0,0,.15)}
+  #dpad{display:grid;grid-template-columns:60px 60px 60px;grid-template-rows:60px 60px 60px;gap:4px}
+  #dpad button{font-size:26px;border:none;border-radius:12px;background:#fff8;cursor:pointer}
+  #dpad button:active{background:#fff}
+  #honkBtn{font-size:22px;font-weight:bold;padding:20px 30px;border:none;border-radius:20px;
+    background:#ff5252;color:#fff;cursor:pointer;box-shadow:0 6px 0 rgba(0,0,0,.25)}
+  #honkBtn:active{transform:translateY(6px);box-shadow:none}
+</style></head>
+<body>
+
+<div id="menu">
+  <button id="muteBtn" onclick="toggleMute()">🔊</button>
+  <h1>🌈 Magic Keyboard Land</h1>
+  <div class="grid">
+    <button class="modebtn" id="typingBtn" onclick="openMode('typing')"><span class="emoji">⌨️</span>Typing</button>
+    <button class="modebtn" id="magicBtn" onclick="openMode('magic')"><span class="emoji">🎈</span>Magic Mash</button>
+    <button class="modebtn" id="lettersBtn" onclick="openMode('letters')"><span class="emoji">🔤</span>Learn Letters</button>
+    <button class="modebtn" id="numbersBtn" onclick="openMode('numbers')"><span class="emoji">🔢</span>Learn Numbers</button>
+    <button class="modebtn" id="vehiclesBtn" onclick="openMode('vehicles')"><span class="emoji">🚗</span>Vehicle World</button>
+  </div>
+  <p class="tag">Made for your little one ❤️</p>
+</div>
+
+<div id="app">
+  <div id="toolbar">
+    <button id="homeBtn" onclick="home()">🏠 Home</button>
+    <span id="modeLabel"></span>
+    <span id="stars">⭐ <span id="starCount">0</span></span>
+  </div>
+
+  <div id="typing"><textarea id="editor" placeholder="Start typing..."></textarea></div>
+
+  <div id="magic">
+    <div id="big">🎉</div>
+    <div id="hint">Press any key or tap the screen!</div>
+  </div>
+
+  <div id="letters" class="learn">
+    <div class="icon" id="letterIcon">🍎</div>
+    <div class="display" id="letterDisplay">A</div>
+    <div class="word" id="letterWord">Apple</div>
+    <div class="prompt">Press a letter key on the keyboard</div>
+  </div>
+
+  <div id="numbers" class="learn">
+    <div class="display" id="numberDisplay">1</div>
+    <div class="dots" id="numberDots">❤️</div>
+    <div class="word" id="numberWord">One</div>
+    <div class="prompt">Press a number key (0-9)</div>
+  </div>
+
+  <div id="vehicles">
+    <div id="vehiclePicker"></div>
+    <div id="scene" class="road">
+      <div id="vehicleSprite">🚗</div>
+    </div>
+    <div id="controls">
+      <div id="dpad">
+        <div></div><button data-dir="up">⬆️</button><div></div>
+        <button data-dir="left">⬅️</button>
+        <div></div>
+        <button data-dir="right">➡️</button>
+        <div></div><button data-dir="down">⬇️</button><div></div>
+      </div>
+      <button id="honkBtn" onclick="honk()">📯 HONK</button>
+    </div>
+  </div>
+
+  <div id="touchRow"></div>
+</div>
+
+<div id="celebrate">🌟</div>
+
+<script>
+/* ================= DATA ================= */
+const emojis=["🦁","🐶","🐱","🐸","🦖","🐘","🚀","🎈","🌈","⭐","🦋","🚗","🐠","🍭","🎂","🐧"];
+const colors=["#ff4d4d","#00d2ff","#ffd93d","#6bff95","#ff77ff","#ffffff","#ffa500"];
+const shapes=["circle","star","heart"];
+
+const letterData={
+  A:["🍎","Apple"],B:["🐻","Bear"],C:["🐱","Cat"],D:["🐶","Dog"],E:["🐘","Elephant"],
+  F:["🐸","Frog"],G:["🦒","Giraffe"],H:["🏠","House"],I:["🍦","Ice Cream"],J:["🧃","Juice"],
+  K:["🪁","Kite"],L:["🦁","Lion"],M:["🌙","Moon"],N:["🥜","Nut"],O:["🐙","Octopus"],
+  P:["🐧","Penguin"],Q:["👑","Queen"],R:["🌈","Rainbow"],S:["⭐","Star"],T:["🐯","Tiger"],
+  U:["☂️","Umbrella"],V:["🎻","Violin"],W:["🐋","Whale"],X:["🩻","X-Ray"],Y:["🪀","Yo-Yo"],Z:["🦓","Zebra"]
+};
+const numberWords=["Zero","One","Two","Three","Four","Five","Six","Seven","Eight","Nine"];
+
+/* pentatonic scale so key-mashing always sounds musical, not random noise */
+const scale=[261.63,293.66,329.63,392.00,440.00,523.25,587.33,659.25];
+
+/* vehicles the kid can pick and drive: emoji, sound word, scene type (road/sky/water/rail) */
+const vehicleData=[
+  {icon:"🚗",name:"Car",sound:"Vroom vroom!",scene:"road"},
+  {icon:"🚌",name:"Bus",sound:"Beep beep, all aboard!",scene:"road"},
+  {icon:"🏎️",name:"Race Car",sound:"Zoooom!",scene:"road"},
+  {icon:"🚒",name:"Fire Truck",sound:"Nee-naw nee-naw!",scene:"road"},
+  {icon:"🚑",name:"Ambulance",sound:"Wee-oo wee-oo!",scene:"road"},
+  {icon:"🚓",name:"Police Car",sound:"Whoop whoop!",scene:"road"},
+  {icon:"🚜",name:"Tractor",sound:"Chug chug chug!",scene:"road"},
+  {icon:"🚚",name:"Truck",sound:"Rumble rumble!",scene:"road"},
+  {icon:"🚲",name:"Bicycle",sound:"Ring ring!",scene:"road"},
+  {icon:"🚂",name:"Train",sound:"Choo choo!",scene:"rail"},
+  {icon:"✈️",name:"Airplane",sound:"Whoosh!",scene:"sky"},
+  {icon:"🚁",name:"Helicopter",sound:"Whirr whirr!",scene:"sky"},
+  {icon:"🚀",name:"Rocket",sound:"Blast off!",scene:"sky"},
+  {icon:"🚢",name:"Ship",sound:"Toot toot!",scene:"water"}
+];
+
+/* ================= STATE ================= */
+let idle, stars=0, muted=false, audioCtx=null;
+const els={menu,app,toolbar,typing,magic,letters,numbers,vehicles,editor,big,hint,
+  starCount,modeLabel,homeBtn,touchRow,celebrate,
+  letterIcon,letterDisplay,letterWord,numberDisplay,numberWord,numberDots};
+
+function getCtx(){ if(!audioCtx) audioCtx=new (window.AudioContext||window.webkitAudioContext)(); return audioCtx; }
+
+/* ================= SPEECH ================= */
+function speak(text){
+  if(muted || !('speechSynthesis' in window)) return;
+  window.speechSynthesis.cancel();
+  const u=new SpeechSynthesisUtterance(text);
+  u.rate=0.85; u.pitch=1.15;
+  window.speechSynthesis.speak(u);
+}
+
+/* ================= SOUND ================= */
+function tone(freq, dur=0.18){
+  if(muted) return;
+  const c=getCtx();
+  const o=c.createOscillator(), g=c.createGain();
+  o.type="sine";
+  o.connect(g); g.connect(c.destination);
+  o.frequency.value=freq;
+  g.gain.value=.06;
+  g.gain.exponentialRampToValueAtTime(.0001, c.currentTime+dur);
+  o.start(); o.stop(c.currentTime+dur);
+}
+function playScaleTone(seed){ tone(scale[seed % scale.length]); }
+function cheer(){
+  [523.25,659.25,783.99,1046.5].forEach((f,i)=>setTimeout(()=>tone(f,.25), i*90));
+}
+
+/* ================= MODE SWITCHING ================= */
+function openMode(m){
+  menu.style.display="none"; app.style.display="block";
+  [typing,magic,letters,numbers,vehicles].forEach(el=>el.style.display="none");
+  const labelMap={typing:"Typing Mode",magic:"Magic Mash",letters:"Learn Letters",numbers:"Learn Numbers",vehicles:"Vehicle World"};
+  modeLabel.textContent=labelMap[m];
+  els[m].style.display = (m==="magic"||m==="typing") ? "block" : "flex";
+  buildTouchRow(m);
+  if(m==="typing") editor.focus();
+  if(m==="vehicles") initVehicleMode();
+  resetIdle();
+}
+function home(){
+  app.style.display="none"; menu.style.display="flex";
+  window.speechSynthesis && window.speechSynthesis.cancel();
+  stopEngine(); Object.keys(driveKeys).forEach(k=>driveKeys[k]=false);
+}
+
+/* ================= STARS / REWARDS ================= */
+function addStar(){
+  stars++;
+  starCount.textContent=stars;
+  if(stars%25===0) celebrateMilestone();
+}
+function celebrateMilestone(){
+  celebrate.style.display="flex";
+  celebrate.textContent = ["🌟","🎉","🏆","👏","🥳"][Math.floor(Math.random()*5)];
+  cheer();
+  speak("Wow, great job!");
+  setTimeout(()=>celebrate.style.display="none",1200);
+}
+
+/* ================= MAGIC MODE ================= */
+function magicTrigger(keyChar){
+  if(keyChar && keyChar.length===1){ big.textContent=keyChar.toUpperCase(); }
+  else { big.textContent=emojis[Math.floor(Math.random()*emojis.length)]; }
+  big.style.color=colors[Math.floor(Math.random()*colors.length)];
+  big.style.transform="translate(-50%,-50%) scale(1.15)";
+  setTimeout(()=>big.style.transform="translate(-50%,-50%) scale(1)",120);
+  burst();
+  playScaleTone(Math.floor(Math.random()*scale.length));
+  addStar();
+  resetIdle();
+}
+function burst(){
+  for(let i=0;i<35;i++){
+    let d=document.createElement("div");
+    const shape=shapes[Math.floor(Math.random()*shapes.length)];
+    d.className="p"+(shape!=="circle" ? " "+shape : "");
+    const size=(8+Math.random()*20);
+    d.style.width=d.style.height=size+"px";
+    d.style.background=colors[Math.floor(Math.random()*colors.length)];
+    d.style.left=(innerWidth/2)+"px";
+    d.style.top=(innerHeight*0.45)+"px";
+    d.style.setProperty("--dx",(Math.random()*800-400)+"px");
+    d.style.setProperty("--dy",(Math.random()*800-400)+"px");
+    magic.appendChild(d);
+    setTimeout(()=>d.remove(),1800);
+  }
+  document.body.style.background=`hsl(${Math.random()*360},80%,70%)`;
+}
+magic.addEventListener("touchstart",e=>{ if(magic.style.display==="block"){ e.preventDefault(); magicTrigger(null);} },{passive:false});
+magic.addEventListener("mousedown",()=>{ if(magic.style.display==="block") magicTrigger(null); });
+
+function resetIdle(){
+  clearTimeout(idle);
+  idle=setTimeout(()=>{
+    if(magic.style.display==="block"){
+      big.textContent=emojis[Math.floor(Math.random()*emojis.length)];
+      burst();
+      resetIdle();
+    }
+  },6000);
+}
+
+/* ================= LETTERS MODE ================= */
+function showLetter(ch, silent){
+  ch=ch.toUpperCase();
+  if(!letterData[ch]) return;
+  const [icon,word]=letterData[ch];
+  letterIcon.textContent=icon;
+  letterDisplay.textContent=ch;
+  letterWord.textContent=word;
+  if(silent) return;
+  document.body.style.background=`hsl(${Math.random()*360},70%,72%)`;
+  speak(`${ch}... ${word}`);
+  tone(scale[ch.charCodeAt(0)%scale.length],.15);
+  addStar();
+}
+
+/* ================= NUMBERS MODE ================= */
+function showNumber(n, silent){
+  numberDisplay.textContent=n;
+  numberWord.textContent=numberWords[n];
+  const icons=["🍎","⭐","🎈","🐶","🌸"];
+  const icon=icons[Math.floor(Math.random()*icons.length)];
+  numberDots.innerHTML = n===0 ? "—" : Array(n).fill(`<span>${icon}</span>`).join("");
+  if(silent) return;
+  document.body.style.background=`hsl(${Math.random()*360},70%,72%)`;
+  speak(`${n}... ${numberWords[n]}`);
+  tone(scale[n%scale.length],.15);
+  addStar();
+}
+
+/* ================= VEHICLES MODE ================= */
+let vIndex=0, vPos={x:20,y:0}, vFacing=1, engineOn=false, engineOsc=null, engineGain=null, engineStopTimer=null;
+const driveKeys={up:false,down:false,left:false,right:false};
+const sceneEl=document.getElementById("scene");
+const spriteEl=document.getElementById("vehicleSprite");
+const pickerEl=document.getElementById("vehiclePicker");
+let vBuilt=false;
+
+function buildVehiclePicker(){
+  if(vBuilt) return; vBuilt=true;
+  vehicleData.forEach((v,i)=>{
+    const b=document.createElement("button");
+    b.textContent=v.icon;
+    b.onclick=()=>pickVehicle(i);
+    b.dataset.idx=i;
+    pickerEl.appendChild(b);
+  });
+}
+function pickVehicle(i){
+  vIndex=i;
+  [...pickerEl.children].forEach((b,idx)=>b.classList.toggle("selected",idx===i));
+  const v=vehicleData[i];
+  spriteEl.textContent=v.icon;
+  sceneEl.className=v.scene;
+  vPos.x=20; vPos.y=(sceneEl.clientHeight||300)/2;
+  updateSpritePos();
+  speak(`${v.name}! ${v.sound}`);
+  addStar();
+}
+function initVehicleMode(){
+  buildVehiclePicker();
+  if(!pickerEl.querySelector(".selected")) pickVehicle(0);
+  else { vPos.y=(sceneEl.clientHeight||300)/2; updateSpritePos(); }
+}
+function updateSpritePos(){
+  const w=sceneEl.clientWidth||360, h=sceneEl.clientHeight||300;
+  vPos.x=Math.max(0,Math.min(w-70,vPos.x));
+  vPos.y=Math.max(0,Math.min(h-70,vPos.y));
+  spriteEl.style.left=vPos.x+"px";
+  spriteEl.style.top=vPos.y+"px";
+  spriteEl.style.transform=`translate(0,0) scaleX(${vFacing})`;
+}
+function spawnPuff(){
+  const d=document.createElement("div");
+  d.className="puff";
+  const size=14+Math.random()*10;
+  d.style.width=d.style.height=size+"px";
+  d.style.left=(vPos.x + (vFacing>0? -10:60))+"px";
+  d.style.top=(vPos.y+30)+"px";
+  sceneEl.appendChild(d);
+  setTimeout(()=>d.remove(),600);
+}
+function ensureEngine(){
+  if(engineOn) return;
+  engineOn=true;
+  const c=getCtx();
+  engineOsc=c.createOscillator(); engineGain=c.createGain();
+  engineOsc.type="sawtooth"; engineOsc.frequency.value=70;
+  engineGain.gain.value=muted?0:.035;
+  engineOsc.connect(engineGain); engineGain.connect(c.destination);
+  engineOsc.start();
+}
+function stopEngine(){
+  engineOn=false;
+  if(engineOsc){ try{ engineOsc.stop(); }catch(e){} engineOsc.disconnect(); engineOsc=null; }
+  if(engineGain){ engineGain.disconnect(); engineGain=null; }
+}
+function honk(){
+  tone(660,.14); setTimeout(()=>tone(520,.18),110);
+  spriteEl.style.transform=`translate(0,0) scaleX(${vFacing}) scale(1.15)`;
+  setTimeout(updateSpritePos,140);
+  speak(vehicleData[vIndex].sound);
+  addStar();
+}
+let puffTimer=0;
+function vehicleLoop(){
+  if(vehicles.style.display!=="none" && app.style.display==="block"){
+    const speed=4.2;
+    let moving=false;
+    if(driveKeys.left){ vPos.x-=speed; vFacing=-1; moving=true; }
+    if(driveKeys.right){ vPos.x+=speed; vFacing=1; moving=true; }
+    if(driveKeys.up){ vPos.y-=speed; moving=true; }
+    if(driveKeys.down){ vPos.y+=speed; moving=true; }
+    if(moving){
+      updateSpritePos();
+      ensureEngine();
+      clearTimeout(engineStopTimer);
+      engineStopTimer=setTimeout(stopEngine,200);
+      puffTimer++;
+      if(puffTimer%8===0) spawnPuff();
+    }
+  }
+  requestAnimationFrame(vehicleLoop);
+}
+requestAnimationFrame(vehicleLoop);
+
+/* d-pad press-and-hold (mouse + touch) */
+document.querySelectorAll("#dpad button[data-dir]").forEach(btn=>{
+  const dir=btn.dataset.dir;
+  const start=e=>{ e.preventDefault(); driveKeys[dir]=true; };
+  const stop=e=>{ driveKeys[dir]=false; };
+  btn.addEventListener("mousedown",start);
+  btn.addEventListener("touchstart",start,{passive:false});
+  ["mouseup","mouseleave","touchend","touchcancel"].forEach(evt=>btn.addEventListener(evt,stop));
+});
+
+/* ================= KEYBOARD LISTENER ================= */
+const arrowKeyMap={ArrowUp:"up",ArrowDown:"down",ArrowLeft:"left",ArrowRight:"right",
+  w:"up",s:"down",a:"left",d:"right",W:"up",S:"down",A:"left",D:"right"};
+
+document.addEventListener("keydown",e=>{
+  if(app.style.display!=="block") return;
+  if(vehicles.style.display==="flex"){
+    if(arrowKeyMap[e.key]){ e.preventDefault(); driveKeys[arrowKeyMap[e.key]]=true; }
+    else if(e.key===" "||e.key==="Enter"){ e.preventDefault(); honk(); }
+    return;
+  }
+  if(magic.style.display==="block"){
+    magicTrigger(e.key);
+  } else if(letters.style.display==="flex" && /^[a-zA-Z]$/.test(e.key)){
+    showLetter(e.key);
+  } else if(numbers.style.display==="flex" && /^[0-9]$/.test(e.key)){
+    showNumber(parseInt(e.key,10));
+  } else if(typing.style.display==="block" && e.key.length===1){
+    playScaleTone(e.key.charCodeAt(0));
+    addStar();
+  }
+});
+document.addEventListener("keyup",e=>{
+  if(arrowKeyMap[e.key]) driveKeys[arrowKeyMap[e.key]]=false;
+});
+
+/* ================= ON-SCREEN KEYS (for touch/tablet without a keyboard) ================= */
+function buildTouchRow(m){
+  touchRow.innerHTML="";
+  if(m==="letters"){
+    Object.keys(letterData).forEach(ch=>{
+      const b=document.createElement("button");
+      b.textContent=ch;
+      b.onclick=()=>showLetter(ch);
+      touchRow.appendChild(b);
+    });
+  } else if(m==="numbers"){
+    for(let i=0;i<10;i++){
+      const b=document.createElement("button");
+      b.textContent=i;
+      b.onclick=()=>showNumber(i);
+      touchRow.appendChild(b);
+    }
+  } else if(m==="magic"){
+    touchRow.innerHTML="";
+  } else {
+    touchRow.innerHTML="";
+  }
+}
+
+/* ================= MUTE ================= */
+function toggleMute(){
+  muted=!muted;
+  document.getElementById("muteBtn").textContent = muted ? "🔇" : "🔊";
+  if(muted && window.speechSynthesis) window.speechSynthesis.cancel();
+  if(engineGain) engineGain.gain.value = muted ? 0 : .035;
+}
+
+/* init defaults (silent, no sound/speech until the child actually presses a key) */
+showLetter("A", true);
+showNumber(1, true);
+</script>
+</body></html>
