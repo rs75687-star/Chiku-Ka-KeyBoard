@@ -43,8 +43,12 @@
   #keyCapture{width:1px;height:1px;font-size:16px;border:none;padding:0;background:transparent;color:transparent}
 
   /* ---------- TYPING ---------- */
-  #typing{display:none;height:calc(100% - 56px)}
-  #editor{width:100%;height:100%;font-size:42px;padding:20px;box-sizing:border-box;border:none;outline:none;
+  #typing{display:none;height:calc(100% - 56px);flex-direction:column}
+  #typeModeBar{display:flex;gap:10px;justify-content:center;padding:10px;background:rgba(0,0,0,.12)}
+  #typeModeBar button{font-size:18px;font-weight:bold;padding:10px 20px;border:none;border-radius:14px;
+    background:rgba(255,255,255,.5);color:#333;cursor:pointer}
+  #typeModeBar button.active{background:#fff;box-shadow:0 0 0 3px #ffb703 inset}
+  #editor{width:100%;flex:1;font-size:42px;padding:20px;box-sizing:border-box;border:none;outline:none;
     background:rgba(255,255,255,.85)}
 
   /* ---------- MAGIC ---------- */
@@ -121,7 +125,7 @@
     <button class="modebtn" id="numbersBtn" onclick="openMode('numbers')"><span class="emoji">🔢</span>Learn Numbers</button>
     <button class="modebtn" id="vehiclesBtn" onclick="openMode('vehicles')"><span class="emoji">🚗</span>Vehicle World</button>
   </div>
-  <p class="tag">Made for your little one ❤️</p>
+  <p class="tag">Made for Chiku❤️</p>
 </div>
 
 <div id="app">
@@ -135,7 +139,13 @@
     <input id="keyCapture" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
   </div>
 
-  <div id="typing"><textarea id="editor" placeholder="Start typing..."></textarea></div>
+  <div id="typing">
+    <div id="typeModeBar">
+      <button id="wordsModeBtn" class="active" onclick="setTypingMode('words')">🔤 Words</button>
+      <button id="numbersModeBtn" onclick="setTypingMode('numbers')">🔢 Numbers</button>
+    </div>
+    <textarea id="editor" placeholder="Start typing..."></textarea>
+  </div>
 
   <div id="magic">
     <div id="big">🎉</div>
@@ -218,7 +228,9 @@ const vehicleData=[
 ];
 
 /* ================= STATE ================= */
-let idle, stars=0, muted=false, audioCtx=null;
+let idle, stars=0, muted=false, audioCtx=null, typingMode="words";
+const wordsModeBtn=document.getElementById("wordsModeBtn");
+const numbersModeBtn=document.getElementById("numbersModeBtn");
 const els={menu,app,toolbar,typing,magic,letters,numbers,vehicles,editor,big,hint,
   starCount,modeLabel,homeBtn,touchRow,celebrate,keyBar,keyCapture,
   letterIcon,letterDisplay,letterWord,numberDisplay,numberWord,numberDots};
@@ -274,9 +286,9 @@ function openMode(m){
   [typing,magic,letters,numbers,vehicles].forEach(el=>el.style.display="none");
   const labelMap={typing:"Typing Mode",magic:"Magic Mash",letters:"Learn Letters",numbers:"Learn Numbers",vehicles:"Vehicle World"};
   modeLabel.textContent=labelMap[m];
-  els[m].style.display = (m==="magic"||m==="typing") ? "block" : "flex";
+  els[m].style.display = (m==="magic") ? "block" : "flex";
   buildTouchRow(m);
-  if(m==="typing") editor.focus();
+  if(m==="typing"){ setTypingMode("words"); editor.focus(); }
   if(m==="vehicles") initVehicleMode();
   if(m!=="vehicles" && tiltOn) disableTilt();
   if(needsKeyCapture(m)){
@@ -566,7 +578,7 @@ document.addEventListener("keydown",e=>{
     else if(e.key===" "||e.key==="Enter"){ e.preventDefault(); honk(); }
     return;
   }
-  if(typing.style.display==="block" && e.key.length===1){
+  if(typing.style.display==="flex" && e.key.length===1){
     playScaleTone(e.key.charCodeAt(0));
     addStar();
   }
@@ -575,6 +587,25 @@ document.addEventListener("keydown",e=>{
 });
 document.addEventListener("keyup",e=>{
   if(arrowKeyMap[e.key]) driveKeys[arrowKeyMap[e.key]]=false;
+});
+
+/* ================= TYPING MODE: Words / Numbers-only toggle ================= */
+function setTypingMode(mode){
+  typingMode=mode;
+  wordsModeBtn.classList.toggle("active", mode==="words");
+  numbersModeBtn.classList.toggle("active", mode==="numbers");
+  editor.setAttribute("inputmode", mode==="numbers" ? "numeric" : "text");
+  /* switching the visible keyboard type on a phone needs a blur+refocus */
+  if(document.activeElement===editor){
+    editor.blur();
+    requestAnimationFrame(()=>editor.focus());
+  }
+}
+editor.addEventListener("input",()=>{
+  if(typingMode==="numbers"){
+    const digitsOnly=editor.value.replace(/[^0-9]/g,"");
+    if(digitsOnly!==editor.value) editor.value=digitsOnly;
+  }
 });
 
 /* ================= ON-SCREEN KEYS (for touch/tablet without a keyboard) ================= */
