@@ -43,12 +43,12 @@
   #keyCapture{width:1px;height:1px;font-size:16px;border:none;padding:0;background:transparent;color:transparent}
 
   /* ---------- TYPING ---------- */
-  #typing{display:none;height:calc(100vh - 56px)}
+  #typing{display:none;height:calc(100% - 56px)}
   #editor{width:100%;height:100%;font-size:42px;padding:20px;box-sizing:border-box;border:none;outline:none;
     background:rgba(255,255,255,.85)}
 
   /* ---------- MAGIC ---------- */
-  #magic{display:none;position:relative;height:calc(100vh - 56px);overflow:hidden}
+  #magic{display:none;position:relative;height:calc(100% - 56px);overflow:hidden}
   #big{position:absolute;left:50%;top:38%;transform:translate(-50%,-50%);font-size:min(32vw,180px);
     font-weight:bold;color:#fff;text-shadow:0 0 20px #000;transition:transform .08s}
   .p{position:absolute;border-radius:50%;pointer-events:none;animation:fly 1.8s linear forwards}
@@ -58,7 +58,7 @@
   #hint{position:absolute;bottom:16px;width:100%;text-align:center;font-size:min(5vw,26px);color:#fff;opacity:.9}
 
   /* ---------- LETTERS / NUMBERS (shared layout) ---------- */
-  .learn{display:none;position:relative;height:calc(100vh - 56px);flex-direction:column;
+  .learn{display:none;position:relative;height:calc(100% - 56px);flex-direction:column;
     align-items:center;justify-content:center;gap:8px}
   .learn .display{font-size:min(45vw,260px);font-weight:bold;color:#fff;text-shadow:0 0 24px rgba(0,0,0,.3);line-height:1}
   .learn .word{font-size:min(9vw,48px);color:#fff;font-weight:bold;text-shadow:0 2px 0 rgba(0,0,0,.2)}
@@ -76,7 +76,7 @@
     font-size:min(20vw,120px);color:#fff;text-shadow:0 0 30px #000;z-index:50;pointer-events:none}
 
   /* ---------- VEHICLES ---------- */
-  #vehicles{display:none;flex-direction:column;height:calc(100vh - 56px)}
+  #vehicles{display:none;flex-direction:column;height:calc(100% - 56px)}
   #vehiclePicker{display:flex;gap:8px;overflow-x:auto;padding:8px 10px;background:rgba(0,0,0,.15)}
   #vehiclePicker button{flex:0 0 auto;font-size:34px;padding:6px 12px;border:none;border-radius:14px;
     background:rgba(255,255,255,.25);cursor:pointer}
@@ -224,6 +224,20 @@ const els={menu,app,toolbar,typing,magic,letters,numbers,vehicles,editor,big,hin
   letterIcon,letterDisplay,letterWord,numberDisplay,numberWord,numberDots};
 
 function getCtx(){ if(!audioCtx) audioCtx=new (window.AudioContext||window.webkitAudioContext)(); return audioCtx; }
+
+/* Keep the play area sized to whatever is actually visible above the on-screen
+   keyboard, instead of the full screen height, so content never hides behind it. */
+function fitToViewport(){
+  const h = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+  app.style.height = h + "px";
+  window.scrollTo(0,0);
+}
+if(window.visualViewport){
+  window.visualViewport.addEventListener("resize", fitToViewport);
+  window.visualViewport.addEventListener("scroll", fitToViewport);
+}
+window.addEventListener("resize", fitToViewport);
+fitToViewport();
 
 /* ================= SPEECH ================= */
 function speak(text){
